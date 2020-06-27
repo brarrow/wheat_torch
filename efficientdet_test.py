@@ -5,6 +5,7 @@ Simple Inference Script of EfficientDet-Pytorch
 """
 import time
 import torch
+
 from torch.backends import cudnn
 from matplotlib import colors
 
@@ -15,7 +16,7 @@ import numpy as np
 from efficientdet.utils import BBoxTransform, ClipBoxes
 from utils.utils import preprocess, invert_affine, postprocess, STANDARD_COLORS, standard_to_bgr, get_index_label, plot_one_box
 
-compound_coef = 0
+compound_coef = 5
 force_input_size = None  # set None to use default size
 img_path = 'test/img.png'
 
@@ -27,9 +28,16 @@ threshold = 0.2
 iou_threshold = 0.2
 
 use_cuda = True
+use_tpu = False
 use_float16 = False
 cudnn.fastest = True
 cudnn.benchmark = True
+
+if use_tpu:
+    import torch_xla
+    import torch_xla.core.xla_model as xm
+    dev_tpu = xm.xla_device()
+
 
 obj_list = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
             'fire hydrant', '', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep',
@@ -51,6 +59,8 @@ ori_imgs, framed_imgs, framed_metas = preprocess(img_path, max_size=input_size)
 
 if use_cuda:
     x = torch.stack([torch.from_numpy(fi).cuda() for fi in framed_imgs], 0)
+elif use_tpu:
+    x = torch.stack([torch.from_numpy(fi).to(dev_tpu) for fi in framed_imgs], 0)
 else:
     x = torch.stack([torch.from_numpy(fi) for fi in framed_imgs], 0)
 
@@ -64,6 +74,8 @@ model.eval()
 
 if use_cuda:
     model = model.cuda()
+elif use_tpu:
+    model = model.to(dev_tpu)
 if use_float16:
     model = model.half()
 

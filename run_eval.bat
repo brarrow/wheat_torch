@@ -1,0 +1,1 @@
+python coco_eval.py -c 0 -p wheat -w ./logs/wheat/efficientdet-d0_38_7356.pth

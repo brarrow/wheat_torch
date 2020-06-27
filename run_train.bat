@@ -1,0 +1,1 @@
+python train.py -c 0 -p wheat --head_only True --lr 1e-3 --batch_size 16 --load_weights weights/efficientdet-d0.pth  --num_epochs 50
