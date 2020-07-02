@@ -6,6 +6,7 @@ import datetime
 import os
 import argparse
 import traceback
+from glob import glob
 
 import torch
 import yaml
@@ -320,10 +321,16 @@ def train(opt):
 
 
 def save_checkpoint(model, name):
+    old_weights_path = glob(opt.saved_path + f'/*.pth')
     if isinstance(model, CustomDataParallel):
         torch.save(model.module.model.state_dict(), os.path.join(opt.saved_path, name))
     else:
         torch.save(model.model.state_dict(), os.path.join(opt.saved_path, name))
+    try:
+        for path in old_weights_path:
+            os.remove(path)
+    except Exception as e:
+        print(f"Can't remove old weights file! Error msg: {e}")
 
 
 if __name__ == '__main__':
