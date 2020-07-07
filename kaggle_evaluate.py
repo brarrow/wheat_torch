@@ -122,8 +122,8 @@ def format_prediction_string(boxes, scores):
 
 
 if __name__ == '__main__':
-    # VAL_IMGS = data_path
-    VAL_IMGS = r"C:\Projects\kaggle\wheat\test"
+    VAL_IMGS = data_path
+    # VAL_IMGS = r"C:\Projects\kaggle\wheat\test"
     model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
                                  ratios=eval(params['anchors_ratios']), scales=eval(params['anchors_scales']))
     model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu')))
