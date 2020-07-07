@@ -1,1 +1,1 @@
-python coco_eval.py -c 0 -p wheat -w ./logs/wheat/efficientdet-d0_38_7356.pth
+python coco_eval.py -c 5 -p wheat -w "C:\Users\User\Desktop\efficientdet-d5_32_19500.pth"
