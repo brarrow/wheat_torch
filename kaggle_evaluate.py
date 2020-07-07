@@ -14,6 +14,7 @@ import json
 import os
 
 import argparse
+import glob
 import numpy as np
 import torch
 import yaml
@@ -28,7 +29,8 @@ from utils.utils import preprocess, invert_affine, postprocess
 ap = argparse.ArgumentParser()
 ap.add_argument('-p', '--project', type=str, default='coco', help='project file that contains parameters')
 ap.add_argument('-c', '--compound_coef', type=int, default=0, help='coefficients of efficientdet')
-ap.add_argument('-w', '--weights', type=str, default=None, help='/path/to/weights')
+ap.add_argument('-d', '--data', type=str, default=f'datasets/wheat/val/', help='dir with imgs')
+ap.add_argument('-w', '--weights', type=str, default=f'weights/effdet_wheat-d5.pth', help='/path/to/weights')
 ap.add_argument('--nms_threshold', type=float, default=0.5,
                 help='nms threshold, don\'t change it if not for testing purposes')
 ap.add_argument('--cuda', type=bool, default=True)
@@ -39,12 +41,13 @@ args = ap.parse_args()
 
 compound_coef = 5
 nms_threshold = 0.33
-use_cuda = True
+use_cuda = args.cuda
 gpu = 0
 use_float16 = False
 override_prev_results = 1
 project_name = "wheat"
-weights_path = f'weights/effdet_wheat-d{compound_coef}.pth'
+weights_path = args.weights
+data_path = args.data
 
 print(f'running coco-style evaluation on project {project_name}, weights {weights_path}...')
 
@@ -54,18 +57,16 @@ obj_list = params['obj_list']
 input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536]
 
 
-def evaluate_coco(img_path, set_name, image_ids, coco, model, threshold=0.05):
-    results = []
+def evaluate_coco(img_path, model, threshold=0.05):
     kag_res = []
-
+    included_extensions = ['jpg', 'jpeg', 'bmp', 'png', 'gif']
+    imgs_files = [os.path.join(img_path, fn) for fn in os.listdir(img_path)
+                  if any(fn.endswith(ext) for ext in included_extensions)]
     regressBoxes = BBoxTransform()
     clipBoxes = ClipBoxes()
 
-    for image_id in tqdm(image_ids):
-        image_info = coco.loadImgs(image_id)[0]
-        image_path = img_path + image_info['file_name']
-
-        ori_imgs, framed_imgs, framed_metas = preprocess(image_path, max_size=input_sizes[compound_coef])
+    for img_path in tqdm(imgs_files):
+        ori_imgs, framed_imgs, framed_metas = preprocess(img_path, max_size=input_sizes[compound_coef])
         x = torch.from_numpy(framed_imgs[0])
 
         if use_cuda:
@@ -91,7 +92,6 @@ def evaluate_coco(img_path, set_name, image_ids, coco, model, threshold=0.05):
         preds = invert_affine(framed_metas, preds)[0]
 
         scores = preds['scores']
-        class_ids = preds['class_ids']
         rois = preds['rois']
 
         if rois.shape[0] > 0:
@@ -99,50 +99,19 @@ def evaluate_coco(img_path, set_name, image_ids, coco, model, threshold=0.05):
             rois[:, 2] -= rois[:, 0]
             rois[:, 3] -= rois[:, 1]
 
-            bbox_score = scores
-            kag_res.append(f"{image_info['file_name'].replace('.jpg', '')} {format_prediction_string(rois, scores)}")
-            for roi_id in range(rois.shape[0]):
-                score = float(bbox_score[roi_id])
-                label = int(class_ids[roi_id])
-                box = rois[roi_id, :]
+            kag_res.append(f"{os.path.basename(img_path).replace('.jpg', '')} {format_prediction_string(rois, scores)}")
 
-                image_result = {
-                    'image_id': image_id,
-                    'category_id': label + 1,
-                    'score': float(score),
-                    'bbox': box.tolist(),
-                }
-
-                results.append(image_result)
-
-    if not len(results):
+    if not len(kag_res):
         raise Exception('the model does not provide any valid output, check model architecture and the data input')
 
     # write output
-    filepath = f'{set_name}_bbox_results.json'
-    if os.path.exists(filepath):
-        os.remove(filepath)
-    json.dump(results, open(filepath, 'w'), indent=4)
-    # write output
-    filepath = f'submission.csv'
+    filepath = f'/kaggle/working/submission.csv'
     if os.path.exists(filepath):
         os.remove(filepath)
     with open(filepath, "w") as f:
         for line in kag_res:
             f.write(line)
             f.write("\n")
-
-
-def _eval(coco_gt, image_ids, pred_json_path):
-    # load results in COCO evaluation tool
-    coco_pred = coco_gt.loadRes(pred_json_path)
-
-    # run COCO evaluation
-    coco_eval = COCOeval(coco_gt, coco_pred, 'bbox')
-    coco_eval.params.imgIds = image_ids
-    coco_eval.evaluate()
-    coco_eval.accumulate()
-    coco_eval.summarize()
 
 
 def format_prediction_string(boxes, scores):
@@ -152,27 +121,19 @@ def format_prediction_string(boxes, scores):
     return " ".join(pred_strings)
 
 
-
 if __name__ == '__main__':
-    SET_NAME = "val"
-    VAL_GT = f'datasets/wheat/annotations/instances_val.json'
-    VAL_IMGS = f'datasets/wheat/val/'
-    MAX_IMAGES = 10
-    coco_gt = COCO(VAL_GT)
-    image_ids = coco_gt.getImgIds()[:MAX_IMAGES]
-    if override_prev_results or not os.path.exists(f'{SET_NAME}_bbox_results.json'):
-        model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
-                                     ratios=eval(params['anchors_ratios']), scales=eval(params['anchors_scales']))
-        model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu')))
-        model.requires_grad_(False)
-        model.eval()
+    # VAL_IMGS = data_path
+    VAL_IMGS = r"C:\Projects\kaggle\wheat\test"
+    model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
+                                 ratios=eval(params['anchors_ratios']), scales=eval(params['anchors_scales']))
+    model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu')))
+    model.requires_grad_(False)
+    model.eval()
 
-        if use_cuda:
-            model.cuda(gpu)
+    if use_cuda:
+        model.cuda(gpu)
 
-            if use_float16:
-                model.half()
+        if use_float16:
+            model.half()
 
-        evaluate_coco(VAL_IMGS, SET_NAME, image_ids, coco_gt, model)
-
-    _eval(coco_gt, image_ids, f'{SET_NAME}_bbox_results.json')
+    evaluate_coco(VAL_IMGS, model)
