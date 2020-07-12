@@ -58,7 +58,7 @@ input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536]
 
 
 def evaluate_coco(img_path, model, threshold=0.05):
-    kag_res = []
+    kag_res = ["image_id,PredictionString"]
     included_extensions = ['jpg', 'jpeg', 'bmp', 'png', 'gif']
     imgs_files = [os.path.join(img_path, fn) for fn in os.listdir(img_path)
                   if any(fn.endswith(ext) for ext in included_extensions)]
