@@ -99,7 +99,7 @@ def evaluate_coco(img_path, model, threshold=0.05):
             rois[:, 2] -= rois[:, 0]
             rois[:, 3] -= rois[:, 1]
 
-            kag_res.append(f"{os.path.basename(img_path).replace('.jpg', '')} {format_prediction_string(rois, scores)}")
+            kag_res.append(f"{os.path.basename(img_path).replace('.jpg', '')}, {format_prediction_string(rois, scores)}")
 
     if not len(kag_res):
         raise Exception('the model does not provide any valid output, check model architecture and the data input')
