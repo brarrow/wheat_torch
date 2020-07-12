@@ -99,7 +99,7 @@ def evaluate_coco(img_path, model, threshold=0.05):
             rois[:, 2] -= rois[:, 0]
             rois[:, 3] -= rois[:, 1]
 
-            kag_res.append(f"{os.path.basename(img_path).replace('.jpg', '')}, {format_prediction_string(rois, scores)}")
+            kag_res.append(f"{os.path.basename(img_path).replace('.jpg', '')},{format_prediction_string(rois, scores)}")
 
     if not len(kag_res):
         raise Exception('the model does not provide any valid output, check model architecture and the data input')
@@ -117,7 +117,7 @@ def evaluate_coco(img_path, model, threshold=0.05):
 def format_prediction_string(boxes, scores):
     pred_strings = []
     for j in zip(scores, boxes):
-        pred_strings.append("{0:.4f} {1} {2} {3} {4}".format(j[0], j[1][0], j[1][1], j[1][2], j[1][3]))
+        pred_strings.append("{0:.4f} {1} {2} {3} {4}".format(j[0], round(j[1][0]), round(j[1][1]), round(j[1][2]), round(j[1][3])))
     return " ".join(pred_strings)
 
 
