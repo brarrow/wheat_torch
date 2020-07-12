@@ -117,7 +117,7 @@ def evaluate_coco(img_path, model, threshold=0.05):
 def format_prediction_string(boxes, scores):
     pred_strings = []
     for j in zip(scores, boxes):
-        pred_strings.append("{0:.4f} {1:d} {2:d} {3:d} {4:d}".format(j[0], round(j[1][0]), round(j[1][1]), round(j[1][2]), round(j[1][3])))
+        pred_strings.append("{0:.4f} {1:d} {2:d} {3:d} {4:d}".format(j[0], int(round(j[1][0])), int(round(j[1][1])), int(round(j[1][2])), int(round(j[1][3]))))
     return " ".join(pred_strings)
 
 
